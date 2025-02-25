@@ -26,37 +26,16 @@ Our backgammon project extracts rich features from a board position to feed into
 
 ### 16-Dimensional Base Feature Vector
 
-The base feature vector has 16 dimensions and is organized in two halves:
+The base feature vector consists of **16 features**, where the first 8 represent the current player and the last 8 represent the opponent. These include:
 
-1. **Current Player Features (First 8 Values)**
-   - **Occupied Points:**  
-     Count of board points (from 1 to 24) where the current player has more than one piece.
-   - **Borne-Off Pieces:**  
-     Estimated borne-off pieces computed as:  
-     `TOTAL_PIECES - (pieces on board) - 2 × (pieces on the bar)`
-   - **Pieces on the Bar:**  
-     The number of pieces currently waiting to re-enter play.
-   - **Blot Distance Sum:**  
-     For board points with exactly one piece (a blot), this is the sum of `(BOARD_SIZE - distance)`. This value provides a measure of how vulnerable the blots are.
-   - **Total Distance:**  
-     The sum of each piece’s distance to home (using each piece’s `spaces_to_home()` value).
-   - **Excess Distance:**  
-     The sum of distances beyond the home zone. For each piece with `spaces_to_home() > ENDZONE_SIZE`, we add `(spaces_to_home() - ENDZONE_SIZE)`.
-   - **Blot Count:**  
-     Count of board points with exactly one piece.
-   - **Pieces on Board:**  
-     Total number of pieces the current player has on the board.
-
-2. **Opponent Features (Last 8 Values)**
-   - These are computed similarly for the opponent (obtained via `current_color.other()`):
-     - Opponent pieces on board.
-     - Opponent blot count.
-     - Opponent excess distance.
-     - Opponent total distance.
-     - Opponent blot distance sum.
-     - Opponent pieces on the bar.
-     - Opponent borne-off pieces (using the same borne-off formula).
-     - Opponent occupied points.
+- **Occupied Points**: Number of board points (1-24) occupied by two or more pieces.
+- **Borne-Off Pieces**: Pieces that have exited the board.
+- **Pieces on the Bar**: Pieces waiting to re-enter play.
+- **Blot Distance Sum**: Vulnerability of single pieces (blots).
+- **Total Distance**: Sum of distances of all pieces to home.
+- **Excess Distance**: Extra distance beyond the home zone.
+- **Blot Count**: Number of single-piece positions.
+- **Pieces on Board**: Total number of pieces in play.
 
 ### Phase Calculation and Extended Feature Vector
 
@@ -118,7 +97,72 @@ The key functions in `feature_vector.py` are:
 
 This design allows our reinforcement learning and evaluation modules to work with a concise, normalized, and phase-aware representation of the board, enabling effective learning and game analysis.
 
+## Heuristic Weights and Strategies
+
+### Heuristic Weights
+
+Our heuristic evaluation uses a set of phase-dependent weights that adjust the importance of each feature based on the game phase. The weights are stored in a 16×3 NumPy matrix where each row corresponds to a feature (in the same order as the 16-dimensional feature vector) and each column corresponds to a phase:
+
+| Feature | Early | Mid | Late | Explanation |
+|---------|-------|-----|------|-------------|
+| **Occupied Points** | 1.3 | 1.7 | 0.8 | Important early to establish strong positions, less valuable late when pieces are moving home. |
+| **Borne-Off Pieces** | 3.0 | 5.0 | 8.0 | Increases in importance as the game progresses since winning is determined by bearing off first. |
+| **Pieces on Bar** | 0.0 | 0.0 | 0.0 | We do not directly reward or penalize pieces on the bar in this heuristic. |
+| **Blot Distance** | -0.5 | -0.3 | -0.1 | Vulnerability decreases in importance as blots become rarer in later phases. |
+| **Total Distance** | -0.6 | -0.4 | -0.2 | Distance matters most early when trying to establish a lead, but becomes less relevant when bearing off. |
+| **Excess Distance** | -0.7 | -0.9 | -1.3 | More important late game as pieces need to move home faster. |
+| **Blot Count** | -0.5 | -0.7 | -0.3 | Avoiding blots is crucial in midgame, where being hit is most costly. |
+| **Pieces on Board** | 1.4 | 1.2 | 1.7 | Generally valuable, especially late game when every piece needs to bear off. |
+| **Opponent Pieces on Board** | 0.0 | 0.0 | 0.0 | Not considered in this heuristic. |
+| **Opponent Blot Count** | 0.0 | 0.0 | 0.0 | Not considered in this heuristic. |
+| **Opponent Excess Distance** | 0.0 | 0.0 | 0.0 | Not considered in this heuristic. |
+| **Opponent Total Distance** | 0.8 | 1.1 | 0.5 | Important midgame when trying to slow the opponent down. |
+| **Opponent Blot Distance** | 0.0 | 0.0 | 0.0 | Not considered in this heuristic. |
+| **Opponent Pieces on Bar** | 2.2 | 2.7 | 3.2 | More opponent pieces on the bar is always beneficial. |
+| **Opponent Borne-Off Pieces** | 0.0 | 0.0 | 0.0 | Not directly considered in this heuristic. |
+| **Opponent Occupied Points** | 0.0 | 0.0 | 0.0 | Not considered in this heuristic. |
+
+When evaluating a board, the phase (returned as an integer between 0 and 2) is used to select the corresponding column of weights. The board evaluation is computed by taking the dot product between the 16-dimensional normalized feature vector and the selected weight vector. The result is then normalized to the range [0, 1] using pre-defined MIN and MAX score norms.
+
+#### Why Min-Max Normalization?
+
+We apply Min-Max normalization to our heuristic scores to ensure consistent scaling and stable training in our reinforcement learning system. The primary reasons are:
+
+1. **Consistency of Scale:**  
+   The heuristic produces scores that vary across different board states. Min-Max normalization ensures all scores fall within a fixed range \([0,1]\), making comparisons across positions meaningful.
+
+2. **Preserving Relative Order:**  
+   Since our heuristic is based on weighted sums of board features, we need to maintain the order of evaluations—i.e., if one board position is better than another before normalization, it should remain better after normalization. Min-Max scaling preserves these relationships.
+
+3. **Stability in Neural Network Training:**  
+   Helps stabilize training by keeping inputs in a well-defined range. Many machine learning models, including reinforcement learning agents, train more effectively when their input values remain between \([0,1]\), preventing extreme values from dominating the learning process.
+
+4. **Handling Negative and Positive Scores:**  
+   Our heuristic function produces both positive and negative scores. Min-Max normalization shifts and scales these scores so that all values are mapped to a non-negative range while maintaining their relative differences.
+
+The normalization formula is:  
+`score = (score - MIN_SCORE_NORM) / (MAX_SCORE_NORM - MIN_SCORE_NORM)`
+
+Where:
+- `MAX_SCORE_NORM` is chosen as the sum of the maximum positive contributions from the heuristic weights.
+- `MIN_SCORE_NORM` is chosen as the sum of the maximum negative contributions.
+
+This transformation ensures that the heuristic values remain in a predictable range, making them more suitable for training reinforcement learning models.
+
+### Strategy Classes
+
+#### `BestMoveStrategy`
+This is the base class that implements move selection by recursively evaluating all possible moves. It:
+- Uses the feature extraction (with phase information) to evaluate board states.
+- Explores moves recursively to choose the sequence with the highest evaluation.
+
+#### `BestMoveHeuristic`
+This class extends `BestMoveStrategy` by implementing the `evaluate_board` method:
+- It obtains the 16-dimensional feature vector and the phase from `board_to_vector()`.
+- It selects the appropriate 16-dimensional weight vector from the heuristic weight matrix using the phase.
+- It computes the evaluation score as the dot product of the feature vector and the weights.
+- Finally, it applies Min-Max normalization to map the score to [0, 1].
+
 ## Our RL Implementation
 
-Our reinforcement learning implementation utilizes the feature vector described above. The feature extraction module (`feature_vector.py`) is responsible for converting the board state into a numerical representation that reflects both static board features and dynamic game phase information. This vector is then used to train our evaluation networks and other RL components.
-
+Our reinforcement learning framework leverages the feature vector and phase encoding described above. The extended 48-dimensional phase-aware vector is used to train evaluation networks and other RL components, enabling the system to learn a single evaluation function that adapts to the stage of the game. The heuristic strategies (`BestMoveStrategy` and `BestMoveHeuristic`) use this representation to select optimal moves during play.
