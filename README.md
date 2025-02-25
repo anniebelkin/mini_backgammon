@@ -163,6 +163,47 @@ This class extends `BestMoveStrategy` by implementing the `evaluate_board` metho
 - It computes the evaluation score as the dot product of the feature vector and the weights.
 - Finally, it applies Min-Max normalization to map the score to [0, 1].
 
-## Our RL Implementation
+## Neural Network for Board Evaluation
 
-Our reinforcement learning framework leverages the feature vector and phase encoding described above. The extended 48-dimensional phase-aware vector is used to train evaluation networks and other RL components, enabling the system to learn a single evaluation function that adapts to the stage of the game. The heuristic strategies (`BestMoveStrategy` and `BestMoveHeuristic`) use this representation to select optimal moves during play.
+We use a fully connected feedforward neural network to evaluate board positions. This network is designed to learn an evaluation function based on a two-stage training process.
+
+### Network Architecture
+Our model consists of 3 fully connected layers:
+
+| Layer | Input Size | Output Size | Activation |
+|-------|------------|-------------|------------|
+| fc1   | 48         | 64          | ReLU       |
+| fc2   | 64         | 64          | ReLU       |
+| fc3   | 64         | 1           | None (Linear) |
+
+*Note:* We do not use any activation on the final layer. Instead, all target values are pre-normalized to the [0,1] range using Min-Max scaling.
+
+### Training Process
+
+#### Part 1: Heuristic Pre-training
+- **Data Collection:**  
+  Sample board positions from games played by two random-move players.
+- **Target Values:**  
+  Use our handcrafted heuristic function (which is normalized to [0,1]) as the target for each board.
+- **Objective:**  
+  Train the network in a supervised manner so that it learns to approximate our heuristic evaluation.
+
+#### Part 2: Winner/Loser Training
+- **Data Collection:**  
+  Generate board samples using the heuristic player that selects from the 4 best actions.
+- **Target Values:**  
+  Label boards based on the eventual outcome: boards from winning positions get high target values, and boards from losing positions get low target values.
+- **Objective:**  
+  Refine the network by training it to predict outcome-based values, effectively learning to distinguish winning from losing board positions.
+
+### Why This Architecture and Process?
+- **3 Layers (with two hidden layers of size 64):**  
+  Provides enough capacity to capture complex board features and strategic nuances.
+- **No Activation on the Final Layer:**  
+  Allows the model to produce a raw scalar output, while target values are normalized to [0,1] during training.
+- **Two-Stage Training:**  
+  - **Stage 1:** Provides a strong starting point by mimicking the handcrafted heuristic.
+  - **Stage 2:** Improves performance by focusing on actual game outcomes (winner vs. loser) using a more selective sample of board positions.
+
+This approach ensures the network first learns a good approximation of our heuristic and then refines its evaluation to better predict winning outcomes.
+
