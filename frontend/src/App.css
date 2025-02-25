@@ -1,0 +1,99 @@
+body {
+  background-color: #116314;
+}
+
+.App {
+  text-align: center;
+  background-color: #116314;
+  width: 100%;
+}
+
+.board {
+    background-image: url('backgammon-board.gif');
+    background-size: contain;
+    background-repeat: no-repeat;
+    background-position: left;
+    position: absolute;
+    margin: auto;
+    width: 98vw; /* 2000 × 1374 */
+    height: 61.21vw; /* 98/61.21 = 1.601 */
+    max-height: 100vh;
+    max-width: 160.1vh; /* (2000 + 200)/1374 = 1.601 */
+    top:0;bottom:0; /* vertical center */
+    left:0;right:0;
+}
+
+.newgamebutton {
+  top: 0%;
+  left: 91.3%;
+  position: absolute;
+  font-size: calc(1vw);
+}
+
+.mutebutton {
+  top: 47.5%;
+  left: 94%;
+  height: 5%;
+  position: absolute;
+}
+
+.winner {
+  top: 44.5%;
+  left: 55%;
+  font-size: calc(5vw);
+  color: yellow;
+  position: absolute;
+}
+
+.cantmove {
+  top: 47.5%;
+  left: 50%;
+  font-size: calc(3vw);
+  color: yellow;
+  position: absolute;
+}
+
+/* The Modal (background) */
+.modal {
+  position: fixed; /* Stay in place */
+  z-index: 1; /* Sit on top */
+  left: 0;
+  top: 0;
+  width: 100%; /* Full width */
+  height: 100%; /* Full height */
+  overflow: auto; /* Enable scroll if needed */
+  background-color: rgb(0,0,0); /* Fallback color */
+  background-color: rgba(0,0,0,0.6); /* Black w/ opacity */
+}
+
+/* Modal Content/Box */
+.modal-content {
+  background-color: #fefefe;
+  margin: 15% auto; /* 15% from the top and centered */
+  padding: 20px;
+  border: 1px solid #888;
+  width: 80%; /* Could be more or less, depending on screen size */
+  max-width: 400px;
+  
+}
+
+/* The Close Button */
+.close {
+  color: #aaa;
+  background-color: white;
+  float: right;
+  font-size: 28px;
+  font-weight: bold;
+  border: white
+}
+
+.close:hover,
+.close:focus {
+  color: black;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.strategy-select {
+  width: 100px; 
+}

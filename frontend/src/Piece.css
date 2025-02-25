@@ -1,0 +1,12 @@
+
+.piece {
+    position: absolute;
+    width: 6.5%;
+    touch-action: none;
+    user-select: none;
+}
+
+.piece img {
+    width: 100%;
+    margin: 0;
+}
