@@ -43,20 +43,13 @@ In addition to the base 16 features, the game phase is determined by analyzing t
 
 - **Pieces Out of Home:**  
   Calculated as  
-  `pieces_out_of_home = curr_on_board - curr_pieces_home - curr_on_bar`.
-  
-- **Average Excess Distance:**  
-  Computed as  
-  `average_distance = curr_excess_distance / pieces_out_of_home`  
-  (if `pieces_out_of_home > 0`).
+  `pieces_out = curr_on_board - curr_pieces_home`  
+  (i.e., the total pieces on board minus those already in the home area).
 
-Based on these values, the phase is assigned as follows:
-- **Late Game:**  
-  If fewer than 3 pieces are out of home and the average excess distance is less than 12.
-- **Mid Game:**  
-  If the average excess distance is less than 18 or if the opponent has 3 or more pieces in the home board.
-- **Early Game:**  
-  Otherwise.
+Based on this value, the phase is assigned as follows:
+- **Late Game:** If fewer than 3 pieces are out of home.
+- **Early Game:** If more than 8 pieces are out of home.
+- **Mid Game:** Otherwise.
 
 Phase Calculation:
 We represent the game phase using an integer:

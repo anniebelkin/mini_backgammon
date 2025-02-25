@@ -83,19 +83,24 @@ def board_to_vector(current_color, board, should_normalize=False):
         opp_occupied_points / norm_occupied
     ]
     
-    phase = get_phase(curr_on_board, curr_pieces_home, curr_on_bar, curr_excess_distance, opp_pieces_home)
+    phase = get_phase(curr_on_board, curr_pieces_home)
     return board_vector, phase
 
-def get_phase(curr_on_board, curr_pieces_home, curr_on_bar, curr_excess_distance, opp_pieces_home):
-    """Return a one-hot phase vector."""
-    pieces_out = curr_on_board - curr_pieces_home - curr_on_bar
-    avg_distance = curr_excess_distance / pieces_out if pieces_out > 0 else 0
-    if pieces_out < 3 and avg_distance < 12:
+def get_phase(curr_on_board, curr_pieces_home):
+    """
+    Determine game phase based on how many pieces are still out of home.
+    
+    - Late Phase: Few pieces out (e.g., < 3)
+    - Early Phase: Most pieces are still out (e.g., > 8)
+    - Mid Phase: Otherwise
+    """
+    pieces_out = curr_on_board - curr_pieces_home
+    if pieces_out < 3:
         return LATE_PHASE
-    elif avg_distance < 18 or opp_pieces_home >= 3:
-        return MID_PHASE
-    else:
+    elif pieces_out > 8:
         return EARLY_PHASE
+    else:
+        return MID_PHASE
 
 def board_to_extended_vector(player, board):
     """Return a 48-dimensional extended vector by gating the 16-dimensional board vector with the phase."""
