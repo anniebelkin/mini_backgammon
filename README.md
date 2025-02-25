@@ -58,7 +58,7 @@ The base feature vector has 16 dimensions and is organized in two halves:
      - Opponent borne-off pieces (using the same borne-off formula).
      - Opponent occupied points.
 
-### Phase Calculation and Augmented Feature Vector
+### Phase Calculation and Extended Feature Vector
 
 In addition to the base 16 features, the game phase is determined by analyzing the current player's board state:
 
@@ -79,12 +79,13 @@ Based on these values, the phase is assigned as follows:
 - **Early Game:**  
   Otherwise.
 
-The phase is encoded as a one-hot vector:
-- Early: `[1, 0, 0]`
-- Mid: `[0, 1, 0]`
-- Late: `[0, 0, 1]`
+Phase Calculation:
+We represent the game phase using an integer:
+    0: Early game
+    1: Mid game
+    2: Late game
 
-To integrate the phase with the base feature vector, we “gate” the 16 features with the phase vector. That is, we replicate the 16 features three times (one block for each phase) and multiply each block by the corresponding one-hot element. For example, if the game is in the early phase, the final augmented feature vector becomes:
+To integrate the phase with the base feature vector, the phase integer is converted into a one-hot vector (e.g., early becomes [1, 0, 0]) and is then used to "gate" the base 16-dimensional vector. “gate” the 16 features with the phase vector. That is, we replicate the 16 features three times (one block for each phase) and multiply each block by the corresponding one-hot element. For example, if the game is in the early phase, the final augmented feature vector becomes:
   
 [1 × (16 features), 0 × (16 features), 0 × (16 features)]
 
@@ -107,13 +108,13 @@ When normalization is enabled, each feature is scaled to the range [0, 1].
 The key functions in `feature_vector.py` are:
 
 - **`board_to_vector(current_color, board, should_normalize)`**  
-  Computes the 16-dimensional base feature vector (for both the current player and the opponent) along with the one-hot phase vector.
+  Computes the 16-dimensional base feature vector (for both the current player and the opponent) along with the phase (as an integer 0, 1, or 2).
 
 - **`get_phase(...)`**  
-  Determines the phase of the current player's board using the logic described above and returns a one-hot phase vector.
+  Determines the phase of the current player's board using the logic described above and returns the phase (as an integer 0, 1, or 2).
 
 - **`board_to_extended_vector(player, board)`**  
-  Produces the final 48-dimensional augmented feature vector by "gating" the 16-dimensional board vector with the phase vector.
+  Converts the phase integer into a one-hot vector and uses it to produce the final 48-dimensional phase-aware vector.
 
 This design allows our reinforcement learning and evaluation modules to work with a concise, normalized, and phase-aware representation of the board, enabling effective learning and game analysis.
 

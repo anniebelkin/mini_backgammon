@@ -5,9 +5,9 @@ MAX_OCCUPIED_POINTS = 7
 MAX_DISTANCES = 360
 MAX_EXCESS_DISTANCE = 270
 
-EARLY_PHASE = [1, 0, 0]
-MID_PHASE = [0, 1, 0]
-LATE_PHASE = [0, 0, 1]
+EARLY_PHASE = 0
+MID_PHASE = 1
+LATE_PHASE = 2
 
 def board_to_vector(current_color, board, should_normalize=False):
     """Return a tuple (board_vector, phase_vector) for the given board."""
@@ -83,8 +83,8 @@ def board_to_vector(current_color, board, should_normalize=False):
         opp_occupied_points / norm_occupied
     ]
     
-    phase_vector = get_phase(curr_on_board, curr_pieces_home, curr_on_bar, curr_excess_distance, opp_pieces_home)
-    return board_vector, phase_vector
+    phase = get_phase(curr_on_board, curr_pieces_home, curr_on_bar, curr_excess_distance, opp_pieces_home)
+    return board_vector, phase
 
 def get_phase(curr_on_board, curr_pieces_home, curr_on_bar, curr_excess_distance, opp_pieces_home):
     """Return a one-hot phase vector."""
@@ -99,7 +99,12 @@ def get_phase(curr_on_board, curr_pieces_home, curr_on_bar, curr_excess_distance
 
 def board_to_extended_vector(player, board):
     """Return a 48-dimensional extended vector by gating the 16-dimensional board vector with the phase."""
-    board_vector, phase_vector = board_to_vector(player, board, should_normalize=True)
+    board_vector, phase = board_to_vector(player, board, should_normalize=True)
+    
+    # Convert phase integer to one-hot vector
+    phase_vector = [0, 0, 0]
+    phase_vector[phase] = 1
+    
     extended = []
     for p in phase_vector:
         extended.extend([p * f for f in board_vector])
