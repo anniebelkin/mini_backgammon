@@ -14,8 +14,7 @@ def log(message, file_path="tournament_log.txt"):
     print(message)
 
 class RecordGame(Game):
-    def run_game(self):
-
+    def run_game(self, samle_file_name = "RL/board_samples"):
         heuristic_function = BestMoveHeuristic()
 
         i = self.first_player.value
@@ -88,7 +87,7 @@ class RecordGame(Game):
             if self.board.has_game_ended():
                 winning_colour = self.board.who_won()
                 stop_input_event.set()  # Stop input in strategies.py as the game is over.
-                
+
                 # Update all training examples: if the record is for the winning side, set the computed target.
                 for record in training_data:
                     if (record["colour"] == "white" and winning_colour == Colour.WHITE) or \
@@ -97,7 +96,7 @@ class RecordGame(Game):
 
                 # Append all training examples to the file 'training_boards'.
                 # Each line will be a JSON object.
-                with open("RL/board_samples", "a") as f:
+                with open(samle_file_name, "a") as f:
                     for record in training_data:
                         f.write(json.dumps(record) + "\n")
                 return  # End the game.
