@@ -1,12 +1,14 @@
 import json
 from random import randint
 import threading
-from src.board import Board
 from src.colour import Colour
 from src.move_not_possible_exception import MoveNotPossibleException
 from RL.feature_vector import board_to_extended_vector as get_board_vector
 from RL.best_move_player import BestMoveHeuristic
+import random
+from tqdm import tqdm
 from src.game import Game, ReadOnlyBoard
+from src.strategies import MoveRandomPiece
 
 def log(message, file_path="tournament_log.txt"):
     with open(file_path, "a") as log_file:
@@ -14,7 +16,7 @@ def log(message, file_path="tournament_log.txt"):
     print(message)
 
 class RecordGame(Game):
-    def run_game(self, samle_file_name = "RL/board_samples"):
+    def run_game(self, sample_file_name = "RL/board_samples"):
         heuristic_function = BestMoveHeuristic()
 
         i = self.first_player.value
@@ -96,9 +98,32 @@ class RecordGame(Game):
 
                 # Append all training examples to the file 'training_boards'.
                 # Each line will be a JSON object.
-                with open(samle_file_name, "a") as f:
+                with open(sample_file_name, "a") as f:
                     for record in training_data:
                         f.write(json.dumps(record) + "\n")
                 return  # End the game.
 
             i += 1  # Switch to the other player's turn.
+
+def sample(first_player, second_player, games, sample_file_name):
+    print(f"\nSimulating {games} training games to generate new board samples...\n")
+    for _ in tqdm(range(games)):
+        # Randomly assign strategies.
+        if random.choice([True, False]):
+            white_strategy = first_player()
+            black_strategy = second_player()
+        else:
+            white_strategy = second_player()
+            black_strategy = first_player()
+
+        # Use RecordGame to record boards with our updated target computation.
+        game = RecordGame(
+            white_strategy=white_strategy,  # or white_strategy
+            black_strategy=black_strategy,  # or black_strategy
+            first_player= Colour(random.randint(0, 1)),
+            time_limit=5,
+        )
+        game.run_game(sample_file_name = sample_file_name)
+
+def sample_random(games = 200, sample_file_name = "RL/board_random_samples"):
+    sample(MoveRandomPiece, MoveRandomPiece, games, sample_file_name)
