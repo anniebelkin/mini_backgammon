@@ -200,3 +200,40 @@ Our model consists of 3 fully connected layers:
 
 This approach ensures the network first learns a good approximation of our heuristic and then refines its evaluation to better predict winning outcomes.
 
+## Pretraining and Sample Generation
+
+We have introduced a new training pipeline for our heuristic evaluation network. Key additions include:
+
+- **train.py**:  
+  - Implements functions for pretraining the `HeuristicNN` model using random board samples.
+  - Samples are generated via `sample_random` (located in `RL/game.py`).
+  - Uses MSE loss with `"sum"` reduction and mini-batch updates.
+  - Plots and saves the sum of MSE loss over epochs, with early stopping based on improvement.
+  
+- **RL_TRAINING.py**:  
+  - Serves as the main entry point to run the pretraining process.
+
+### Training Process Overview
+
+**Stage 1: Pretraining**  
+   - Random board samples are generated from games played by random-move players.
+   - The model is trained in a supervised manner using our heuristic function values (normalized to [0,1]) as targets.
+   - Training progress is monitored via a loss curve that updates every epoch.
+
+### Hyperparameter Choices
+
+- **Learning Rate (0.001):**  
+  This value strikes a good balance between convergence speed and stability. It allows the optimizer (Adam) to make steady progress without overshooting minima, which is crucial given our network's architecture and the variability in our sampled board positions.
+
+- **Batch Update Size (50):**  
+  A batch size of 50 provides sufficiently representative gradient estimates while keeping memory usage and computation time manageable. This size helps smooth the training process, especially when working with the relatively small input vector size (48) and a moderate dataset.
+
+### Data Shuffling
+
+- **Shuffling the Examples:**  
+  Each epoch, the training examples are shuffled before creating mini-batches. This step is critical to:
+  - **Break correlations** between consecutive samples, ensuring that gradient updates are not biased by the order of the data.
+  - **Improve generalization** by presenting a more diverse mix of samples in each mini-batch.
+  - **Stabilize training**, especially when the data distribution may vary across the game samples.
+
+All training outputs (e.g., loss plots, model checkpoints) are saved in the `RL/pretrain_output` directory.

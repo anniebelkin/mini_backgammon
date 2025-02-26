@@ -48,7 +48,7 @@ def load_random_samples(file_path):
                 y.append(record["heuristic"])
     return X, y
 
-def pretrain(learning_rate=0.001, batch_update_size=50, games=10000, 
+def pretrain(learning_rate=0.001, batch_update_size=50, games=5000, 
              improvement_threshold=0.0001, patience=100, should_sample=False):
     """
     Pretrains the HeuristicNN model using random board samples.
