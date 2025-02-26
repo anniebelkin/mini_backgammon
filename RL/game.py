@@ -9,6 +9,7 @@ import random
 from tqdm import tqdm
 from src.game import Game, ReadOnlyBoard
 from src.strategies import MoveRandomPiece
+from RL.best_move_player import BestOfFourStrategy
 
 def log(message, file_path="tournament_log.txt"):
     with open(file_path, "a") as log_file:
@@ -127,3 +128,6 @@ def sample(first_player, second_player, games, sample_file_name):
 
 def sample_random(games = 200, sample_file_name = "RL/board_random_samples"):
     sample(MoveRandomPiece, MoveRandomPiece, games, sample_file_name)
+
+def sample_best_of_four(games = 200, sample_file_name = "RL/board_samples"):
+    sample(BestOfFourStrategy, BestOfFourStrategy, games, sample_file_name)

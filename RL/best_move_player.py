@@ -1,4 +1,6 @@
 import numpy as np
+import math
+import random
 
 from src.strategies import Strategy
 from src.piece import Piece
@@ -119,3 +121,96 @@ class BestMoveHeuristic(BestMoveStrategy):
         # Min-Max normalization to [0,1] range
         score = (score - MIN_SCORE_NORM) / (MAX_SCORE_NORM - MIN_SCORE_NORM)
         return score
+    
+class BestOfFourStrategy(Strategy):
+    def __init__(self):
+        super().__init__()
+        self.evaluate_board = BestMoveHeuristic().evaluate_board
+
+    @staticmethod
+    def get_difficulty():
+        return "Hard"
+
+    def move(self, board, colour, dice_roll, make_move, opponents_activity):
+        pieces = board.get_pieces(colour)
+        # If there is only one piece left, treat this case separately.
+        if len(pieces) == 1:
+            piece = pieces[0]
+            best_value = float('-inf')
+            best_die = None
+            # Try each die roll and simulate the move.
+            for d in dice_roll:
+                if board.is_move_possible(piece, d):
+                    board_copy = board.create_copy()
+                    new_piece = board_copy.get_piece_at(piece.location)
+                    board_copy.move_piece(new_piece, d)
+                    board_value = self.evaluate_board(board_copy, colour)
+                    if board_value > best_value:
+                        best_value = board_value
+                        best_die = d
+            if best_die is not None:
+                # Execute the chosen move.
+                make_move(piece.location, best_die)
+            # End the turn after handling the single-piece case.
+            return
+
+        # Otherwise, use the recursive move generation approach.
+        combos1 = self.move_recursively(board, colour, dice_roll)
+        
+        # For non-doubles, try the reversed dice order as well.
+        if len(dice_roll) == 2:
+            new_dice_roll = dice_roll.copy()
+            new_dice_roll.reverse()
+            combos2 = self.move_recursively(board, colour, new_dice_roll)
+            combined = combos1 + combos2
+            combined.sort(key=lambda combo: combo['value'], reverse=True)
+            top_combos = combined[:4]
+        else:
+            top_combos = combos1
+
+        if top_combos:
+            # If fewer than 4 move sequences exist, just pick the best one.
+            if len(top_combos) < 4:
+                chosen_combo = top_combos[0]
+            else:
+                weights = [math.exp(combo['value']) for combo in top_combos]
+                total_weight = sum(weights)
+                normalized_weights = [w / total_weight for w in weights]
+                chosen_combo = random.choices(top_combos, weights=normalized_weights, k=1)[0]
+            for move_info in chosen_combo['moves']:
+                make_move(move_info['piece_at'], move_info['die_roll'])
+
+    def move_recursively(self, board, colour, dice_rolls):
+        if not dice_rolls:
+            board_value = self.evaluate_board(board, colour)
+            return [{'value': board_value, 'moves': []}]
+
+        dice_rolls_left = dice_rolls.copy()
+        die_roll = dice_rolls_left.pop(0)
+
+        move_combinations = []
+
+        # Get unique piece locations.
+        pieces_to_try = list({piece.location for piece in board.get_pieces(colour)})
+        valid_pieces = [board.get_piece_at(loc) for loc in pieces_to_try]
+        # Sort so that pieces furthest from home come first.
+        valid_pieces.sort(key=Piece.spaces_to_home, reverse=True)
+
+        for piece in valid_pieces:
+            if board.is_move_possible(piece, die_roll):
+                board_copy = board.create_copy()
+                new_piece = board_copy.get_piece_at(piece.location)
+                board_copy.move_piece(new_piece, die_roll)
+                if dice_rolls_left:
+                    subsequent_combos = self.move_recursively(board_copy, colour, dice_rolls_left)
+                    for combo in subsequent_combos:
+                        new_moves = [{'die_roll': die_roll, 'piece_at': piece.location}] + combo['moves']
+                        move_combinations.append({'value': combo['value'], 'moves': new_moves})
+                else:
+                    board_value = self.evaluate_board(board_copy, colour)
+                    new_moves = [{'die_roll': die_roll, 'piece_at': piece.location}]
+                    move_combinations.append({'value': board_value, 'moves': new_moves})
+
+        move_combinations.sort(key=lambda combo: combo['value'], reverse=True)
+        return move_combinations[:4]
+

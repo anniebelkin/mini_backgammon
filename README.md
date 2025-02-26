@@ -1,4 +1,4 @@
-# backgammon
+# Backgammon
 
 Python modules to play backgammon (human or computer).
 
@@ -155,6 +155,13 @@ This class extends `BestMoveStrategy` by implementing the `evaluate_board` metho
 - It selects the appropriate 16-dimensional weight vector from the heuristic weight matrix using the phase.
 - It computes the evaluation score as the dot product of the feature vector and the weights.
 - Finally, it applies Min-Max normalization to map the score to [0, 1].
+
+#### `BestOfFourStrategy`
+This class also leverages the `BestMoveHeuristic` evaluation but adds a **sampling step from the top four move sequences**:
+- Recursively generates possible move sequences using a method similar to `BestMoveStrategy`.
+- Sorts these sequences by evaluation score and takes only the top four.
+- From those top sequences, it chooses one via a **softmax-like selection** (exponential weights), balancing exploration with the highest-valued sequence.
+- If fewer than four move sequences exist, it simply picks the best one.
 
 ## Neural Network for Board Evaluation
 
