@@ -220,6 +220,8 @@ We have introduced a new training pipeline for our heuristic evaluation network.
    - The model is trained in a supervised manner using our heuristic function values (normalized to [0,1]) as targets.
    - Training progress is monitored via a loss curve that updates every epoch.
 
+![plot](./img/pretrain_plot.png)
+
 ### Hyperparameter Choices
 
 - **Learning Rate (0.001):**  
