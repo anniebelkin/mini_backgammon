@@ -111,17 +111,19 @@ def pretrain(learning_rate=0.001, batch_update_size=50, games=5000,
             epoch_loss += loss.item()
             idx = batch_end
         
-        epoch_losses.append(epoch_loss)
         print(f"[Epoch {epoch_count}] Sum of MSE Loss: {epoch_loss:.6f}")
         
-        # Plot loss curve.
-        plt.clf()
-        plt.plot(range(1, len(epoch_losses) + 1), epoch_losses, marker='o')
-        plt.title("Pretraining Loss Over Epochs (Early Stopping)")
-        plt.xlabel("Epoch")
-        plt.ylabel("Sum of MSE Loss")
-        plt.grid(True)
-        plt.savefig(os.path.join(output_dir, "pretrain_loss.png"))
+        if epoch_count > 1:
+            epoch_losses.append(epoch_loss)
+
+            # Plot loss curve.
+            plt.clf()
+            plt.plot(range(1, len(epoch_losses) + 1), epoch_losses, marker='o')
+            plt.title("Pretraining Loss Over Epochs (Early Stopping)")
+            plt.xlabel("Epoch")
+            plt.ylabel("Sum of MSE Loss")
+            plt.grid(True)
+            plt.savefig(os.path.join(output_dir, "pretrain_loss.png"))
         
         # Early stopping check.
         if last_epoch_loss is not None:
