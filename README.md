@@ -156,6 +156,12 @@ This class extends `BestMoveStrategy` by implementing the `evaluate_board` metho
 - It computes the evaluation score as the dot product of the feature vector and the weights.
 - Finally, it applies Min-Max normalization to map the score to [0, 1].
 
+#### `BestMoveModel`
+This class extends `BestMoveStrategy` to use a neural network model for board evaluation:
+- It receives a pretrained model in its constructor and sets the model to evaluation mode.
+- In its `evaluate_board` method, it extracts the extended board vector from the current board state using `board_to_extended_vector()`, converts it into a tensor (adding a batch dimension), and then obtains the evaluation score from the model.
+- The resulting score is a scalar value in the range [0,1] (as the training process ensures target normalization).
+
 #### `BestOfFourStrategy`
 This class also leverages the `BestMoveHeuristic` evaluation but adds a **sampling step from the top four move sequences**:
 - Recursively generates possible move sequences using a method similar to `BestMoveStrategy`.

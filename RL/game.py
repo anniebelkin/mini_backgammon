@@ -1,15 +1,15 @@
 import json
-from random import randint
 import threading
+import random
+from random import randint
+from tqdm import tqdm
+from src.game import Game, ReadOnlyBoard
 from src.colour import Colour
 from src.move_not_possible_exception import MoveNotPossibleException
 from RL.feature_vector import board_to_extended_vector as get_board_vector
-from RL.best_move_player import BestMoveHeuristic
-import random
-from tqdm import tqdm
-from src.game import Game, ReadOnlyBoard
 from src.strategies import MoveRandomPiece
-from RL.best_move_player import BestOfFourStrategy
+from RL.best_move_player import BestMoveHeuristic, BestOfFourStrategy, BestMoveModel
+
 
 def log(message, file_path="tournament_log.txt"):
     with open(file_path, "a") as log_file:
@@ -131,3 +131,37 @@ def sample_random(games = 200, sample_file_name = "RL/board_random_samples"):
 
 def sample_best_of_four(games = 200, sample_file_name = "RL/board_samples"):
     sample(BestOfFourStrategy, BestOfFourStrategy, games, sample_file_name)
+
+def test_model(model, opponent_player, opponent_model=None):
+    wins = 0
+    for _ in tqdm(range(10)):
+        # Randomly assign strategies.
+        if random.choice([True, False]):
+            white_strategy = opponent_player(opponent_model) if opponent_model else opponent_player()
+            black_strategy = BestMoveModel(model)
+            color = Colour.BLACK
+        else:
+            white_strategy = BestMoveModel(model)
+            black_strategy = opponent_player(opponent_model) if opponent_model else opponent_player()
+            color = Colour.WHITE
+
+        game = Game(
+            white_strategy=white_strategy,  # or white_strategy
+            black_strategy=black_strategy,  # or black_strategy
+            first_player= Colour(random.randint(0, 1)),
+            time_limit=5,
+        )
+        game.run_game()
+        if game.who_won() == color:
+            wins += 1
+    avg_wins = wins/10
+    print(f"Model wins: {wins}/10")
+    return avg_wins
+
+def test_model_improvement(model, last_saved_model=None):
+    print(f"\nTesting the model against last saved model...\n")
+    return test_model(model, BestMoveModel, last_saved_model)
+
+def test_model_against_heuristic(model):
+    print(f"\nTesting the model against Heuristic player...\n")
+    return test_model(model, BestMoveHeuristic)

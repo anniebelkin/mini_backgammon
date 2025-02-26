@@ -2,9 +2,11 @@ import numpy as np
 import math
 import random
 
+import torch
+
 from src.strategies import Strategy
 from src.piece import Piece
-from RL.feature_vector import board_to_vector
+from RL.feature_vector import board_to_vector, board_to_extended_vector
 
 # Heuristic weight matrix for [early, mid, late] game phases
 HEURISTIC_WEIGHTS = np.array([
@@ -121,6 +123,27 @@ class BestMoveHeuristic(BestMoveStrategy):
         # Min-Max normalization to [0,1] range
         score = (score - MIN_SCORE_NORM) / (MAX_SCORE_NORM - MIN_SCORE_NORM)
         return score
+    
+class BestMoveModel(BestMoveStrategy):
+    """A strategy that evaluates board positions using a model."""
+
+    def __init__(self, model):
+        super().__init__()
+        self.model = model
+        self.model.eval()
+
+    def evaluate_board(self, board, colour):
+        """
+
+        The feature vector is weighted according to the current phase of the game.
+        The final score is normalized to the range [0,1].
+        """
+        feature_vector = board_to_extended_vector(colour, board)
+        tensor = torch.tensor(feature_vector, dtype=torch.float32)
+        tensor = tensor.unsqueeze(0)
+        with torch.no_grad():
+            value = self.model(tensor)
+        return value.item()
     
 class BestOfFourStrategy(Strategy):
     def __init__(self):
