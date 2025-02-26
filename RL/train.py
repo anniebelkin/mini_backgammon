@@ -8,7 +8,7 @@ import torch.nn as nn
 import torch.optim as optim
 import matplotlib.pyplot as plt
 
-from RL.game import sample_random, sample_best_of_four, test_model
+from RL.game import sample_random, sample_best_of_four
 
 SAMPLES_FILE = "RL/board_samples"
 RANDOM_SAMPLES_FILE = "RL/board_random_samples"
