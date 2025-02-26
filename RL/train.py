@@ -14,7 +14,7 @@ SAMPLES_FILE = "RL/board_samples"
 RANDOM_SAMPLES_FILE = "RL/board_random_samples"
 PRETRAIN_OUTPUT = "RL/pretrain_output"
 TRAIN_OUTPUT = "RL/train_output"
-SAVED_PRETRAINED_MODEL = "pretained_model.pt"
+SAVED_PRETRAINED_MODEL = "pretrained_model.pt"
 SAVED_TRAINED_MODEL = "trained_model.pt"
 RL_DIR = "RL"
 
