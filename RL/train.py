@@ -8,16 +8,19 @@ import torch.nn as nn
 import torch.optim as optim
 import matplotlib.pyplot as plt
 
-from RL.game import sample_random
+from RL.game import sample_random, sample_best_of_four, test_model
 
 SAMPLES_FILE = "RL/board_samples"
 RANDOM_SAMPLES_FILE = "RL/board_random_samples"
 PRETRAIN_OUTPUT = "RL/pretrain_output"
+TRAIN_OUTPUT = "RL/train_output"
+SAVED_PRETRAINED_MODEL = "pretained_model.pt"
+SAVED_TRAINED_MODEL = "trained_model.pt"
+RL_DIR = "RL"
 
 run_number = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-output_dir = os.path.join(PRETRAIN_OUTPUT, f"RUN_{run_number}")
-os.makedirs(output_dir, exist_ok=True)
-print(f"Saving outputs to directory: {output_dir}")
+pretrained_output_dir = os.path.join(PRETRAIN_OUTPUT, f"RUN_{run_number}")
+output_dir = os.path.join(TRAIN_OUTPUT, f"RUN_{run_number}")
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print(f"Using device: {device}")
@@ -36,8 +39,8 @@ class HeuristicNN(nn.Module):
         x = self.fc3(x)
         return x
 
-def load_random_samples(file_path):
-    """Load random board samples from file. Returns X (features) and y (heuristic targets)."""
+def load_samples(file_path, target = "target"):
+    """Load board samples from file. Returns X (features) and y (heuristic targets)."""
     X, y = [], []
     with open(file_path, "r") as f:
         for line in f:
@@ -45,7 +48,7 @@ def load_random_samples(file_path):
             if line:
                 record = json.loads(line)
                 X.append(record["board_vector"])
-                y.append(record["heuristic"])
+                y.append(record[target])
     return X, y
 
 def pretrain(learning_rate=0.001, batch_update_size=50, games=5000, 
@@ -59,12 +62,16 @@ def pretrain(learning_rate=0.001, batch_update_size=50, games=5000,
       3. Train in mini-batches using MSELoss (sum reduction).
       4. Plot the sum of MSE loss per epoch and apply early stopping.
     """
+
+    os.makedirs(pretrained_output_dir, exist_ok=True)
+    print(f"Saving pre-training outputs to directory: {pretrained_output_dir}")
+
     # Generate random samples.
     if should_sample:
         sample_random(games=games, sample_file_name=RANDOM_SAMPLES_FILE)
     
     # Load data.
-    X, y = load_random_samples(RANDOM_SAMPLES_FILE)
+    X, y = load_samples(RANDOM_SAMPLES_FILE, target="heuristic")
     if not X:
         print("No samples found. Exiting.")
         return
@@ -84,60 +91,63 @@ def pretrain(learning_rate=0.001, batch_update_size=50, games=5000,
     no_improvement_count = 0
     epoch_count = 0
     
-    # Training loop with early stopping.
-    while True:
-        epoch_count += 1
-        model.train()
-        
-        # Shuffle data.
-        indices = list(range(dataset_size))
-        random.shuffle(indices)
-        X_tensor = X_tensor[indices]
-        y_tensor = y_tensor[indices]
-        
-        epoch_loss = 0.0
-        idx = 0
-        while idx < dataset_size:
-            batch_end = min(idx + batch_update_size, dataset_size)
-            batch_X = X_tensor[idx:batch_end]
-            batch_y = y_tensor[idx:batch_end]
+    try:
+        # Training loop with early stopping.
+        while True:
+            epoch_count += 1
+            model.train()
             
-            optimizer.zero_grad()
-            preds = model(batch_X)
-            loss = criterion(preds, batch_y)
-            loss.backward()
-            optimizer.step()
+            # Shuffle data.
+            indices = list(range(dataset_size))
+            random.shuffle(indices)
+            X_tensor = X_tensor[indices]
+            y_tensor = y_tensor[indices]
             
-            epoch_loss += loss.item()
-            idx = batch_end
-        
-        print(f"[Epoch {epoch_count}] Sum of MSE Loss: {epoch_loss:.6f}")
-        
-        if epoch_count > 1:
-            epoch_losses.append(epoch_loss)
+            epoch_loss = 0.0
+            idx = 0
+            while idx < dataset_size:
+                batch_end = min(idx + batch_update_size, dataset_size)
+                batch_X = X_tensor[idx:batch_end]
+                batch_y = y_tensor[idx:batch_end]
+                
+                optimizer.zero_grad()
+                preds = model(batch_X)
+                loss = criterion(preds, batch_y)
+                loss.backward()
+                optimizer.step()
+                
+                epoch_loss += loss.item()
+                idx = batch_end
+            
+            print(f"[Epoch {epoch_count}] Sum of MSE Loss: {epoch_loss:.6f}")
+            
+            if epoch_count > 1:
+                epoch_losses.append(epoch_loss)
 
-            # Plot loss curve.
-            plt.clf()
-            plt.plot(range(1, len(epoch_losses) + 1), epoch_losses, marker='o')
-            plt.title("Pretraining Loss Over Epochs (Early Stopping)")
-            plt.xlabel("Epoch")
-            plt.ylabel("Sum of MSE Loss")
-            plt.grid(True)
-            plt.savefig(os.path.join(output_dir, "pretrain_loss.png"))
-        
-        # Early stopping check.
-        if last_epoch_loss is not None:
-            improvement = abs(last_epoch_loss - epoch_loss)
-            if improvement < improvement_threshold:
-                no_improvement_count += 1
-            else:
-                no_improvement_count = 0
-        last_epoch_loss = epoch_loss
-        
-        if no_improvement_count >= patience:
-            print(f"No significant improvement for {patience} epochs. Early stopping.")
-            break
-    
-    model_path = os.path.join(output_dir, "pretrain_model.pt")
-    torch.save(model.state_dict(), model_path)
-    print(f"Training ended after {epoch_count} epochs. Model saved to {model_path}")
+                # Plot loss curve.
+                plt.clf()
+                plt.plot(range(1, len(epoch_losses) + 1), epoch_losses, marker='o')
+                plt.title("Pretraining Loss Over Epochs (Early Stopping)")
+                plt.xlabel("Epoch")
+                plt.ylabel("Sum of MSE Loss")
+                plt.grid(True)
+                plt.savefig(os.path.join(pretrained_output_dir, "pretrain_loss.png"))
+            
+            # Early stopping check.
+            if last_epoch_loss is not None:
+                improvement = abs(last_epoch_loss - epoch_loss)
+                if improvement < improvement_threshold:
+                    no_improvement_count += 1
+                else:
+                    no_improvement_count = 0
+            last_epoch_loss = epoch_loss
+            
+            if no_improvement_count >= patience:
+                print(f"No significant improvement for {patience} epochs. Early stopping.")
+                break
+    finally:
+        model_backup_path = os.path.join(pretrained_output_dir, SAVED_PRETRAINED_MODEL)
+        model_path = os.path.join(RL_DIR, SAVED_PRETRAINED_MODEL)
+        torch.save(model.state_dict(), model_path)
+        torch.save(model.state_dict(), model_backup_path)
+        print(f"Training ended after {epoch_count} epochs. Model saved to {model_path} and {model_backup_path}")
