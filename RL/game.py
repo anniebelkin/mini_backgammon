@@ -106,33 +106,45 @@ class RecordGame(Game):
 
             i += 1  # Switch to the other player's turn.
 
-def sample(first_player, second_player, games, sample_file_name):
+def sample(first_player, second_player, games, sample_file_name, model=None, device=None):
     print(f"\nSimulating {games} training games to generate new board samples...\n")
 
-    # Randomly assign strategies.
-    if random.choice([True, False]):
-        white_strategy = first_player()
-        black_strategy = second_player()
+    # Instantiate first strategy with (model, device) if required.
+    if first_player in [BestOfFourStrategy]:
+        first_strategy = first_player(model, device)
     else:
-        white_strategy = second_player()
-        black_strategy = first_player()
+        first_strategy = first_player()
+    
+    # Instantiate second strategy with (model, device) if required.
+    if second_player in [BestOfFourStrategy]:
+        second_strategy = second_player(model, device)
+    else:
+        second_strategy = second_player()
+
+    # Randomly assign strategies to white and black.
+    if random.choice([True, False]):
+        white_strategy = first_strategy
+        black_strategy = second_strategy
+    else:
+        white_strategy = second_strategy
+        black_strategy = first_strategy
 
     for _ in tqdm(range(games)):
-        
-        # Use RecordGame to record boards with our updated target computation.
+        # Use RecordGame to record boards with updated target computation.
         game = RecordGame(
-            white_strategy=white_strategy,  # or white_strategy
-            black_strategy=black_strategy,  # or black_strategy
-            first_player= Colour(random.randint(0, 1)),
+            white_strategy=white_strategy,
+            black_strategy=black_strategy,
+            first_player=Colour(random.randint(0, 1)),
             time_limit=5,
         )
-        game.run_game(sample_file_name = sample_file_name)
+        game.run_game(sample_file_name=sample_file_name)
+
 
 def sample_random(games = 200, sample_file_name = "RL/board_random_samples"):
     sample(MoveRandomPiece, MoveRandomPiece, games, sample_file_name)
 
-def sample_best_of_four(games = 200, sample_file_name = "RL/board_samples"):
-    sample(BestOfFourStrategy, BestOfFourStrategy, games, sample_file_name)
+def sample_best_of_four(games = 200, sample_file_name = "RL/board_samples", model=None, device=None):
+    sample(BestOfFourStrategy, BestMoveHeuristic, games, sample_file_name, model, device)
 
 def test_model(device, model, opponent_player, opponent_model=None):
     wins = 0

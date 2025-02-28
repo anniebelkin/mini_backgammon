@@ -147,9 +147,25 @@ class BestMoveModel(BestMoveStrategy):
         return value.item()
     
 class BestOfFourStrategy(Strategy):
-    def __init__(self):
+    """
+    A strategy that uses a neural network to evaluate board positions.
+    It recursively generates move sequences, selects the top 4 moves based
+    on the network's evaluation, and then chooses randomly among them using
+    exponential weighting.
+    """
+    def __init__(self, model, device):
         super().__init__()
-        self.evaluate_board = BestMoveHeuristic().evaluate_board
+        self.model = model
+        self.device = device
+        self.evaluate_board = self._evaluate_board
+
+    def _evaluate_board(self, board, colour):
+        feature_vector = board_to_extended_vector(colour, board)
+        tensor = torch.tensor(feature_vector, dtype=torch.float32).to(self.device)
+        tensor = tensor.unsqueeze(0)
+        with torch.no_grad():
+            value = self.model(tensor)
+        return value.item()
 
     @staticmethod
     def get_difficulty():
@@ -157,12 +173,11 @@ class BestOfFourStrategy(Strategy):
 
     def move(self, board, colour, dice_roll, make_move, opponents_activity):
         pieces = board.get_pieces(colour)
-        # If there is only one piece left, treat this case separately.
+        # Special case: if only one piece remains.
         if len(pieces) == 1:
             piece = pieces[0]
             best_value = float('-inf')
             best_die = None
-            # Try each die roll and simulate the move.
             for d in dice_roll:
                 if board.is_move_possible(piece, d):
                     board_copy = board.create_copy()
@@ -173,15 +188,11 @@ class BestOfFourStrategy(Strategy):
                         best_value = board_value
                         best_die = d
             if best_die is not None:
-                # Execute the chosen move.
                 make_move(piece.location, best_die)
-            # End the turn after handling the single-piece case.
             return
 
-        # Otherwise, use the recursive move generation approach.
+        # Generate move sequences.
         combos1 = self.move_recursively(board, colour, dice_roll)
-        
-        # For non-doubles, try the reversed dice order as well.
         if len(dice_roll) == 2:
             new_dice_roll = dice_roll.copy()
             new_dice_roll.reverse()
@@ -193,7 +204,6 @@ class BestOfFourStrategy(Strategy):
             top_combos = combos1
 
         if top_combos:
-            # If fewer than 4 move sequences exist, just pick the best one.
             if len(top_combos) < 4:
                 chosen_combo = top_combos[0]
             else:
@@ -211,13 +221,9 @@ class BestOfFourStrategy(Strategy):
 
         dice_rolls_left = dice_rolls.copy()
         die_roll = dice_rolls_left.pop(0)
-
         move_combinations = []
-
-        # Get unique piece locations.
         pieces_to_try = list({piece.location for piece in board.get_pieces(colour)})
         valid_pieces = [board.get_piece_at(loc) for loc in pieces_to_try]
-        # Sort so that pieces furthest from home come first.
         valid_pieces.sort(key=Piece.spaces_to_home, reverse=True)
 
         for piece in valid_pieces:
@@ -234,7 +240,5 @@ class BestOfFourStrategy(Strategy):
                     board_value = self.evaluate_board(board_copy, colour)
                     new_moves = [{'die_roll': die_roll, 'piece_at': piece.location}]
                     move_combinations.append({'value': board_value, 'moves': new_moves})
-
         move_combinations.sort(key=lambda combo: combo['value'], reverse=True)
         return move_combinations[:4]
-
