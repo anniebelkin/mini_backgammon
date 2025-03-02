@@ -1,4 +1,4 @@
-from RL.train import pretrain, training, test_model
+from RL.train import pretrain, training, test_model, test_specific_model
 from RL.game import sample_random
 import torch
 
@@ -7,6 +7,7 @@ def main():
     print("1. Pretrain")
     print("2. Training")
     print("3. testing")
+    print("4. test specific model")
     choice = input("Enter the number of your choice: ").strip()
 
     if choice == "1":
@@ -28,6 +29,10 @@ def main():
         )
     elif choice == "3":
         test_model()
+    elif choice == "3":
+        print("Enter the path of the model")
+        path = input("Enter the path: ").strip()
+        test_specific_model(path)
     else:
         print("Invalid choice. Please enter '1' or '2'.")
 

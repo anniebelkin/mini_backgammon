@@ -8,7 +8,7 @@ import torch.nn as nn
 import torch.optim as optim
 import matplotlib.pyplot as plt
 
-from RL.game import sample_random, sample_best_of_four, test_model_against_heuristic, test_model_improvement, sample_best_of_four_hard_huristic, test_model_against_hard_heuristic
+from RL.game import sample_random, sample_best_of_four, test_model_against_heuristic, test_model_improvement, sample_best_of_four_hard_huristic, test_model_against_hard_heuristic, test_model_against_player
 
 # File paths and constants
 SAMPLES_FILE = "RL/board_samples"
@@ -320,5 +320,15 @@ def test_model():
     model.eval()
     for _ in range(100):
         avg_wins = test_model_against_heuristic(device, model)
+        wins += avg_wins * 10
+    print(f"Model wins: {wins}/1000")
+
+def test_specific_model(model_path):
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    model = load_model(model_path, "").to(device)
+    wins = 0
+    model.eval()
+    for _ in range(100):
+        avg_wins = test_model_against_player(device, model)
         wins += avg_wins * 10
     print(f"Model wins: {wins}/1000")

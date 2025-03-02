@@ -187,3 +187,25 @@ def test_model_against_heuristic(device, model):
 def test_model_against_hard_heuristic(device, model):
     print(f"\nTesting the model against Heuristic player...\n")
     return test_model(device, model, CompareAllMovesWeightingDistanceAndSinglesWithEndGame2)
+
+def test_model_against_player(device, model):
+    print(f"\nselect your choice...\n")
+    print(f"1. against our huristic\n")
+    print(f"2. against simple compare all moves\n")
+    print(f"3. against hard compare all moves\n")
+    print(f"4. against another model\n")
+    player = input("Enter the number of your choice: ").strip()
+    opponent_model = None
+    if player == "1":
+        player = BestMoveHeuristic
+    elif player == "2":
+        player = CompareAllMovesSimple
+    elif player == "3":
+        player = CompareAllMovesWeightingDistanceAndSinglesWithEndGame2
+    elif player == "4":
+        print("Enter the path of the other model")
+        path = input("Enter the path: ").strip()
+        player = BestMoveModel
+        opponent_model = torch.load(path).to(device)
+    print(f"\nTesting the model against player {player}...\n")
+    return test_model(device, model, player, opponent_model)
