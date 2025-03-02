@@ -8,7 +8,7 @@ import torch.nn as nn
 import torch.optim as optim
 import matplotlib.pyplot as plt
 
-from RL.game import sample_random, sample_best_of_four, test_model_against_heuristic, test_model_improvement
+from RL.game import sample_random, sample_best_of_four, test_model_against_heuristic, test_model_improvement, sample_best_of_four_hard_huristic, test_model_against_hard_heuristic
 
 # File paths and constants
 SAMPLES_FILE = "RL/board_samples"
@@ -27,6 +27,15 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 # Force CPU for debugging/testing (remove this if you want GPU)
 device = torch.device("cpu")
 print(f"Using device: {device}")
+
+def trim_samples(file_path, max_entries=20000):
+    with open(file_path, "r") as f:
+        lines = f.readlines()
+    if len(lines) > max_entries:
+        # Keep only the last max_entries lines.
+        lines = lines[-max_entries:]
+        with open(file_path, "w") as f:
+            f.writelines(lines)
 
 class HeuristicNN(nn.Module):
     def __init__(self, input_size=48, hidden_size=64):
@@ -207,7 +216,8 @@ def training(learning_rate=0.001, batch_update_size=50, epochs_per_round=5,
             if os.path.exists(SAMPLES_FILE):
                 os.remove(SAMPLES_FILE)
             # Generate new samples using best-of-four strategy.
-            sample_best_of_four(games=100, sample_file_name=SAMPLES_FILE, model=model, device=device)
+            sample_best_of_four_hard_huristic(games=100, sample_file_name=SAMPLES_FILE, model=model, device=device)
+            trim_samples(SAMPLES_FILE)
 
             X, y = load_samples(SAMPLES_FILE)
             if not X:
@@ -261,7 +271,7 @@ def training(learning_rate=0.001, batch_update_size=50, epochs_per_round=5,
 
             # Test the model against the heuristic opponent.
             model.eval()
-            avg_wins = test_model_against_heuristic(device, model)
+            avg_wins = test_model_against_hard_heuristic(device, model)
             avg_wins_history.append(avg_wins)
             if avg_wins > best_avg_wins:
                 best_avg_wins = avg_wins
@@ -302,3 +312,13 @@ def training(learning_rate=0.001, batch_update_size=50, epochs_per_round=5,
         print("Training interrupted.")
     finally:
         print("Finished training.")
+
+def test_model():
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    model = load_model("RL/trained_model.pt", "").to(device)
+    wins = 0
+    model.eval()
+    for _ in range(100):
+        avg_wins = test_model_against_heuristic(device, model)
+        wins += avg_wins * 10
+    print(f"Model wins: {wins}/1000")

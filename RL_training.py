@@ -1,11 +1,12 @@
-from RL.train import pretrain, training
+from RL.train import pretrain, training, test_model
 from RL.game import sample_random
+import torch
 
 def main():
     print("Choose an option to run:")
     print("1. Pretrain")
     print("2. Training")
-    print("3. random sampling")
+    print("3. testing")
     choice = input("Enter the number of your choice: ").strip()
 
     if choice == "1":
@@ -13,9 +14,8 @@ def main():
             learning_rate=0.001,
             batch_update_size=50,
             games=5000, 
-            improvement_threshold=0.0001,
-            patience=10,
-            should_sample=True
+            improvement_threshold=0.0005,
+            patience=10
         )
     elif choice == "2":
         training(
@@ -27,7 +27,7 @@ def main():
             desired_win_rate=1.0
         )
     elif choice == "3":
-        sample_random()
+        test_model()
     else:
         print("Invalid choice. Please enter '1' or '2'.")
 

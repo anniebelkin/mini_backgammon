@@ -8,6 +8,7 @@ from src.colour import Colour
 from src.move_not_possible_exception import MoveNotPossibleException
 from RL.feature_vector import board_to_extended_vector as get_board_vector
 from src.strategies import MoveRandomPiece
+from src.compare_all_moves_strategy import CompareAllMovesSimple, CompareAllMovesWeightingDistanceAndSinglesWithEndGame2
 from RL.best_move_player import BestMoveHeuristic, BestOfFourStrategy, BestMoveModel
 
 
@@ -146,6 +147,9 @@ def sample_random(games = 200, sample_file_name = "RL/board_random_samples"):
 def sample_best_of_four(games = 200, sample_file_name = "RL/board_samples", model=None, device=None):
     sample(BestOfFourStrategy, BestMoveHeuristic, games, sample_file_name, model, device)
 
+def sample_best_of_four_hard_huristic(games = 200, sample_file_name = "RL/board_samples", model=None, device=None):
+    sample(BestOfFourStrategy, CompareAllMovesWeightingDistanceAndSinglesWithEndGame2, games, sample_file_name, model, device)
+
 def test_model(device, model, opponent_player, opponent_model=None):
     wins = 0
     # Randomly assign strategies.
@@ -179,3 +183,7 @@ def test_model_improvement(device, model, last_saved_model=None):
 def test_model_against_heuristic(device, model):
     print(f"\nTesting the model against Heuristic player...\n")
     return test_model(device, model, BestMoveHeuristic)
+
+def test_model_against_hard_heuristic(device, model):
+    print(f"\nTesting the model against Heuristic player...\n")
+    return test_model(device, model, CompareAllMovesWeightingDistanceAndSinglesWithEndGame2)
