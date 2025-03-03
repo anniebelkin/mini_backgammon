@@ -8,7 +8,7 @@ import torch.nn as nn
 import torch.optim as optim
 import matplotlib.pyplot as plt
 
-from RL.game import sample_random, sample_best_of_four, test_model_against_heuristic, test_model_improvement, sample_best_of_four_hard_huristic, test_model_against_hard_heuristic, test_model_against_player
+from RL.game import sample_random, sample_best_of_four, test_model_against_heuristic, test_model_improvement, sample_best_of_four_hard_huristic, test_model_against_hard_heuristic, test_model_against_player, sample_model_against_all
 
 # File paths and constants
 SAMPLES_FILE = "RL/board_samples"
@@ -28,7 +28,7 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 device = torch.device("cpu")
 print(f"Using device: {device}")
 
-def trim_samples(file_path, max_entries=20000):
+def trim_samples(file_path, max_entries=10000):
     with open(file_path, "r") as f:
         lines = f.readlines()
     if len(lines) > max_entries:
@@ -216,7 +216,7 @@ def training(learning_rate=0.001, batch_update_size=50, epochs_per_round=5,
             if os.path.exists(SAMPLES_FILE):
                 os.remove(SAMPLES_FILE)
             # Generate new samples using best-of-four strategy.
-            sample_best_of_four_hard_huristic(games=100, sample_file_name=SAMPLES_FILE, model=model, device=device)
+            sample_model_against_all(games=100, sample_file_name=SAMPLES_FILE, model=model, device=device)
             trim_samples(SAMPLES_FILE)
 
             X, y = load_samples(SAMPLES_FILE)
@@ -327,5 +327,16 @@ def test_specific_model(model_path):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model = load_model(model_path, "").to(device)
     model.eval()
-    wins = test_model_against_player(device, model)
-    print(f"Model wins: {wins}/1000")
+    print(f"\nselect your choice...\n")
+    print(f"1. against our huristic\n")
+    print(f"2. against simple compare all moves\n")
+    print(f"3. against hard compare all moves\n")
+    print(f"4. against another model\n")
+    player = input("Enter the number of your choice: ").strip()
+    opponent_model = None
+    if player == "4":
+        print("Enter the path of the other model")
+        path = input("Enter the path: ").strip()
+        opponent_model = load_model(path, "").to(device)
+    wins = test_model_against_player(device, model, player, opponent_model)
+    print(f"Model wins: {wins}/100")

@@ -9,8 +9,8 @@ from src.move_not_possible_exception import MoveNotPossibleException
 from RL.feature_vector import board_to_extended_vector as get_board_vector
 from src.strategies import MoveRandomPiece
 from src.compare_all_moves_strategy import CompareAllMovesSimple, CompareAllMovesWeightingDistanceAndSinglesWithEndGame2
-from RL.best_move_player import BestMoveHeuristic, BestOfFourStrategy, BestMoveModel
-
+from RL.best_move_player import BestMoveHeuristic, BestOfFourStrategy, BestMoveModel, BestOfFourHardStrategy, BestOfFourHuristicStrategy
+import torch
 
 def log(message, file_path="tournament_log.txt"):
     with open(file_path, "a") as log_file:
@@ -111,13 +111,13 @@ def sample(first_player, second_player, games, sample_file_name, model=None, dev
     print(f"\nSimulating {games} training games to generate new board samples...\n")
 
     # Instantiate first strategy with (model, device) if required.
-    if first_player in [BestOfFourStrategy]:
+    if first_player in [BestOfFourStrategy, BestMoveModel]:
         first_strategy = first_player(model, device)
     else:
         first_strategy = first_player()
     
     # Instantiate second strategy with (model, device) if required.
-    if second_player in [BestOfFourStrategy]:
+    if second_player in [BestOfFourStrategy, BestMoveModel]:
         second_strategy = second_player(model, device)
     else:
         second_strategy = second_player()
@@ -149,6 +149,10 @@ def sample_best_of_four(games = 200, sample_file_name = "RL/board_samples", mode
 
 def sample_best_of_four_hard_huristic(games = 200, sample_file_name = "RL/board_samples", model=None, device=None):
     sample(BestOfFourStrategy, CompareAllMovesWeightingDistanceAndSinglesWithEndGame2, games, sample_file_name, model, device)
+
+def sample_model_against_all(games = 200, sample_file_name = "RL/board_samples", model=None, device=None):
+    sample(BestOfFourStrategy, CompareAllMovesWeightingDistanceAndSinglesWithEndGame2, int(games / 2), sample_file_name, model, device)
+    sample(BestOfFourStrategy, BestMoveHeuristic, int(games / 2), sample_file_name, model, device)
 
 def test_model(device, model, opponent_player, opponent_model=None):
     wins = 0
@@ -188,14 +192,7 @@ def test_model_against_hard_heuristic(device, model):
     print(f"\nTesting the model against Heuristic player...\n")
     return test_model(device, model, CompareAllMovesWeightingDistanceAndSinglesWithEndGame2)
 
-def test_model_against_player(device, model):
-    print(f"\nselect your choice...\n")
-    print(f"1. against our huristic\n")
-    print(f"2. against simple compare all moves\n")
-    print(f"3. against hard compare all moves\n")
-    print(f"4. against another model\n")
-    player = input("Enter the number of your choice: ").strip()
-    opponent_model = None
+def test_model_against_player(device, model, player, opponent_model=None):
     if player == "1":
         player = BestMoveHeuristic
     elif player == "2":
@@ -203,12 +200,9 @@ def test_model_against_player(device, model):
     elif player == "3":
         player = CompareAllMovesWeightingDistanceAndSinglesWithEndGame2
     elif player == "4":
-        print("Enter the path of the other model")
-        path = input("Enter the path: ").strip()
         player = BestMoveModel
-        opponent_model = torch.load(path).to(device)
     print(f"\nTesting the model against player {player}...\n")
     wins = 0
-    for _ in range(100):
+    for _ in range(10):
         wins += test_model(device, model, player, opponent_model) * 10
-    return wins/1000
+    return wins
