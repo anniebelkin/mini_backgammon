@@ -29,7 +29,7 @@ def main():
         )
     elif choice == "3":
         test_model()
-    elif choice == "3":
+    elif choice == "4":
         print("Enter the path of the model")
         path = input("Enter the path: ").strip()
         test_specific_model(path)

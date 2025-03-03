@@ -326,9 +326,6 @@ def test_model():
 def test_specific_model(model_path):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model = load_model(model_path, "").to(device)
-    wins = 0
     model.eval()
-    for _ in range(100):
-        avg_wins = test_model_against_player(device, model)
-        wins += avg_wins * 10
+    wins = test_model_against_player(device, model)
     print(f"Model wins: {wins}/1000")

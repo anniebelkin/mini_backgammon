@@ -208,4 +208,7 @@ def test_model_against_player(device, model):
         player = BestMoveModel
         opponent_model = torch.load(path).to(device)
     print(f"\nTesting the model against player {player}...\n")
-    return test_model(device, model, player, opponent_model)
+    wins = 0
+    for _ in range(100):
+        wins += test_model(device, model, player, opponent_model) * 10
+    return wins/1000
