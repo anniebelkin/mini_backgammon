@@ -154,7 +154,7 @@ def sample_model_against_all(games = 200, sample_file_name = "RL/board_samples",
     sample(BestOfFourStrategy, CompareAllMovesWeightingDistanceAndSinglesWithEndGame2, int(games / 2), sample_file_name, model, device)
     sample(BestOfFourStrategy, BestMoveHeuristic, int(games / 2), sample_file_name, model, device)
 
-def test_model(device, model, opponent_player, opponent_model=None):
+def test_model(device, model, opponent_player, opponent_model=None, games=10, filename=None):
     wins = 0
     # Randomly assign strategies.
     if random.choice([True, False]):
@@ -166,14 +166,23 @@ def test_model(device, model, opponent_player, opponent_model=None):
         black_strategy = opponent_player(opponent_model, device) if opponent_model else opponent_player()
         color = Colour.WHITE
 
-    for _ in tqdm(range(10)):
-        game = Game(
-            white_strategy=white_strategy,
-            black_strategy=black_strategy,
-            first_player= Colour(random.randint(0, 1)),
-            time_limit=5
-        )
-        game.run_game(verbose=False)
+    for _ in tqdm(range(games)):
+        if filename:
+            game = RecordGame(
+                white_strategy=white_strategy,
+                black_strategy=black_strategy,
+                first_player= Colour(random.randint(0, 1)),
+                time_limit=5
+            )
+            game.run_game(sample_file_name=filename)
+        else:
+            game = Game(
+                white_strategy=white_strategy,
+                black_strategy=black_strategy,
+                first_player= Colour(random.randint(0, 1)),
+                time_limit=5
+            )
+            game.run_game(verbose=False)
         if game.who_won() == color:
             wins += 1
     avg_wins = wins/10
@@ -206,3 +215,7 @@ def test_model_against_player(device, model, player, opponent_model=None):
     for _ in range(10):
         wins += test_model(device, model, player, opponent_model) * 10
     return wins
+
+def test_model_against_random(device, model):
+    print(f"\nTesting the model against Random player...\n")
+    return test_model(device, model, MoveRandomPiece, games=4, filename="RL/random_board_samples")

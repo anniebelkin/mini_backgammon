@@ -8,7 +8,7 @@ import torch.nn as nn
 import torch.optim as optim
 import matplotlib.pyplot as plt
 
-from RL.game import sample_random, sample_best_of_four, test_model_against_heuristic, test_model_improvement, sample_best_of_four_hard_huristic, test_model_against_hard_heuristic, test_model_against_player, sample_model_against_all
+from RL.game import sample_random, sample_best_of_four, test_model_against_heuristic, test_model_improvement, sample_best_of_four_hard_huristic, test_model_against_hard_heuristic, test_model_against_player, sample_model_against_all, test_model_against_random
 
 # File paths and constants
 SAMPLES_FILE = "RL/board_samples"
@@ -67,6 +67,8 @@ def load_samples(file_path, target="target"):
 def load_model(model_path, backup_path):
     """Load the pretrained model from model_path. If not found, load from backup."""
     model = HeuristicNN().to(device)
+    print(f"model path: {model_path}")
+    print(f"os.path.exists(model_path): {os.path.exists(model_path)}")
     if os.path.exists(model_path):
         model.load_state_dict(torch.load(model_path, map_location=device))
         print(f"Loaded model from {model_path}")
@@ -332,11 +334,27 @@ def test_specific_model(model_path):
     print(f"2. against simple compare all moves\n")
     print(f"3. against hard compare all moves\n")
     print(f"4. against another model\n")
+    print(f"5. against random\n")
     player = input("Enter the number of your choice: ").strip()
     opponent_model = None
     if player == "4":
         print("Enter the path of the other model")
         path = input("Enter the path: ").strip()
         opponent_model = load_model(path, "").to(device)
+    if player == "5":
+        wins = test_model_against_random(device, model)
+        x, y = load_samples("RL/board_random_samples", target="heuristic")
+        while len(x) < 200:
+            wins += test_model_against_random(device, model)
+            x, y = load_samples("RL/board_random_samples", target="heuristic")
+		# calculate variance and mean between the model and the huristic (y vector)
+        preds = model(torch.tensor(x, dtype=torch.float32, device=device))
+        difference = preds - torch.tensor(y, dtype=torch.float32, device=device).view(-1, 1)
+        variance = torch.var(difference)
+        average = torch.mean(difference)
+        print(f"Model wins: {wins}/200")
+        print(f"Variance: {variance}")
+        print(f"Average: {average}")
+        return
     wins = test_model_against_player(device, model, player, opponent_model)
     print(f"Model wins: {wins}/100")
