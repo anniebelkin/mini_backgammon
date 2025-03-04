@@ -306,6 +306,9 @@ Keeping file I/O and memory usage within practical limits.
 - **pretrained model is winning 100% against random player**
 - **difference Variance: 0.0025739907287061214**
 - **difference Average: 0.299162894487381**
+- **win rate against our huristics:** 51%
+- **win rate against simple huristic:** 50%
+- **win rate against hard huristic:** 30%
 - **graph**
 ![alt text](<early pretraining.jpg>)
 ![alt text](<late pretraining.jpg>)
