@@ -8,8 +8,9 @@ from src.colour import Colour
 from src.move_not_possible_exception import MoveNotPossibleException
 from RL.feature_vector import board_to_extended_vector as get_board_vector
 from src.strategies import MoveRandomPiece
-from RL.best_move_player import BestMoveHeuristic, BestOfFourStrategy, BestMoveModel
-
+from src.compare_all_moves_strategy import CompareAllMovesSimple, CompareAllMovesWeightingDistanceAndSinglesWithEndGame2
+from RL.best_move_player import BestMoveHeuristic, BestOfFourStrategy, BestMoveModel, BestOfFourHardStrategy, BestOfFourHuristicStrategy
+import torch
 
 def log(message, file_path="tournament_log.txt"):
     with open(file_path, "a") as log_file:
@@ -106,35 +107,54 @@ class RecordGame(Game):
 
             i += 1  # Switch to the other player's turn.
 
-def sample(first_player, second_player, games, sample_file_name):
+def sample(first_player, second_player, games, sample_file_name, model=None, device=None):
     print(f"\nSimulating {games} training games to generate new board samples...\n")
 
-    # Randomly assign strategies.
-    if random.choice([True, False]):
-        white_strategy = first_player()
-        black_strategy = second_player()
+    # Instantiate first strategy with (model, device) if required.
+    if first_player in [BestOfFourStrategy, BestMoveModel]:
+        first_strategy = first_player(model, device)
     else:
-        white_strategy = second_player()
-        black_strategy = first_player()
+        first_strategy = first_player()
+    
+    # Instantiate second strategy with (model, device) if required.
+    if second_player in [BestOfFourStrategy, BestMoveModel]:
+        second_strategy = second_player(model, device)
+    else:
+        second_strategy = second_player()
+
+    # Randomly assign strategies to white and black.
+    if random.choice([True, False]):
+        white_strategy = first_strategy
+        black_strategy = second_strategy
+    else:
+        white_strategy = second_strategy
+        black_strategy = first_strategy
 
     for _ in tqdm(range(games)):
-        
-        # Use RecordGame to record boards with our updated target computation.
+        # Use RecordGame to record boards with updated target computation.
         game = RecordGame(
-            white_strategy=white_strategy,  # or white_strategy
-            black_strategy=black_strategy,  # or black_strategy
-            first_player= Colour(random.randint(0, 1)),
+            white_strategy=white_strategy,
+            black_strategy=black_strategy,
+            first_player=Colour(random.randint(0, 1)),
             time_limit=5,
         )
-        game.run_game(sample_file_name = sample_file_name)
+        game.run_game(sample_file_name=sample_file_name)
+
 
 def sample_random(games = 200, sample_file_name = "RL/board_random_samples"):
     sample(MoveRandomPiece, MoveRandomPiece, games, sample_file_name)
 
-def sample_best_of_four(games = 200, sample_file_name = "RL/board_samples"):
-    sample(BestOfFourStrategy, BestOfFourStrategy, games, sample_file_name)
+def sample_best_of_four(games = 200, sample_file_name = "RL/board_samples", model=None, device=None):
+    sample(BestOfFourStrategy, BestMoveHeuristic, games, sample_file_name, model, device)
 
-def test_model(device, model, opponent_player, opponent_model=None):
+def sample_best_of_four_hard_huristic(games = 200, sample_file_name = "RL/board_samples", model=None, device=None):
+    sample(BestOfFourStrategy, CompareAllMovesWeightingDistanceAndSinglesWithEndGame2, games, sample_file_name, model, device)
+
+def sample_model_against_all(games = 200, sample_file_name = "RL/board_samples", model=None, device=None):
+    sample(BestOfFourStrategy, CompareAllMovesWeightingDistanceAndSinglesWithEndGame2, int(games / 2), sample_file_name, model, device)
+    sample(BestOfFourStrategy, BestMoveHeuristic, int(games / 2), sample_file_name, model, device)
+
+def test_model(device, model, opponent_player, opponent_model=None, games=10, filename=None):
     wins = 0
     # Randomly assign strategies.
     if random.choice([True, False]):
@@ -146,14 +166,23 @@ def test_model(device, model, opponent_player, opponent_model=None):
         black_strategy = opponent_player(opponent_model, device) if opponent_model else opponent_player()
         color = Colour.WHITE
 
-    for _ in tqdm(range(10)):
-        game = Game(
-            white_strategy=white_strategy,
-            black_strategy=black_strategy,
-            first_player= Colour(random.randint(0, 1)),
-            time_limit=5
-        )
-        game.run_game(verbose=False)
+    for _ in tqdm(range(games)):
+        if filename:
+            game = RecordGame(
+                white_strategy=white_strategy,
+                black_strategy=black_strategy,
+                first_player= Colour(random.randint(0, 1)),
+                time_limit=5
+            )
+            game.run_game(sample_file_name=filename)
+        else:
+            game = Game(
+                white_strategy=white_strategy,
+                black_strategy=black_strategy,
+                first_player= Colour(random.randint(0, 1)),
+                time_limit=5
+            )
+            game.run_game(verbose=False)
         if game.who_won() == color:
             wins += 1
     avg_wins = wins/10
@@ -167,3 +196,26 @@ def test_model_improvement(device, model, last_saved_model=None):
 def test_model_against_heuristic(device, model):
     print(f"\nTesting the model against Heuristic player...\n")
     return test_model(device, model, BestMoveHeuristic)
+
+def test_model_against_hard_heuristic(device, model):
+    print(f"\nTesting the model against Heuristic player...\n")
+    return test_model(device, model, CompareAllMovesWeightingDistanceAndSinglesWithEndGame2)
+
+def test_model_against_player(device, model, player, opponent_model=None):
+    if player == "1":
+        player = BestMoveHeuristic
+    elif player == "2":
+        player = CompareAllMovesSimple
+    elif player == "3":
+        player = CompareAllMovesWeightingDistanceAndSinglesWithEndGame2
+    elif player == "4":
+        player = BestMoveModel
+    print(f"\nTesting the model against player {player}...\n")
+    wins = 0
+    for _ in range(10):
+        wins += test_model(device, model, player, opponent_model) * 10
+    return wins
+
+def test_model_against_random(device, model):
+    print(f"\nTesting the model against Random player...\n")
+    return test_model(device, model, MoveRandomPiece, games=4, filename="RL/random_board_samples")

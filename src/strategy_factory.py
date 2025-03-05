@@ -1,6 +1,6 @@
 from src.compare_all_moves_strategy import CompareAllMovesSimple
 from src.strategies import MoveFurthestBackStrategy, HumanStrategy, MoveRandomPiece
-
+from RL.RLplayer import RLPlayer_strategy
 
 class StrategyFactory:
     @staticmethod
@@ -17,6 +17,7 @@ class StrategyFactory:
             MoveRandomPiece,
             MoveFurthestBackStrategy,
             CompareAllMovesSimple,
+            RLPlayer_strategy,
             HumanStrategy,
         ]
         return strategies

@@ -8,7 +8,7 @@ import torch.nn as nn
 import torch.optim as optim
 import matplotlib.pyplot as plt
 
-from RL.game import sample_random, sample_best_of_four, test_model_against_heuristic, test_model_improvement
+from RL.game import sample_random, sample_best_of_four, test_model_against_heuristic, test_model_improvement, sample_best_of_four_hard_huristic, test_model_against_hard_heuristic, test_model_against_player, sample_model_against_all, test_model_against_random
 
 # File paths and constants
 SAMPLES_FILE = "RL/board_samples"
@@ -28,6 +28,15 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 device = torch.device("cpu")
 print(f"Using device: {device}")
 
+def trim_samples(file_path, max_entries=10000):
+    with open(file_path, "r") as f:
+        lines = f.readlines()
+    if len(lines) > max_entries:
+        # Keep only the last max_entries lines.
+        lines = lines[-max_entries:]
+        with open(file_path, "w") as f:
+            f.writelines(lines)
+
 class HeuristicNN(nn.Module):
     def __init__(self, input_size=48, hidden_size=64):
         super(HeuristicNN, self).__init__()
@@ -40,7 +49,8 @@ class HeuristicNN(nn.Module):
         x = self.relu(self.fc1(x))
         x = self.relu(self.fc2(x))
         x = self.fc3(x)
-        return x
+        # Ensure output is between 0 and 1
+        return torch.sigmoid(x)
 
 def load_samples(file_path, target="target"):
     """Load board samples from file. Returns X (features) and y (target values)."""
@@ -56,14 +66,15 @@ def load_samples(file_path, target="target"):
 
 def load_model(model_path, backup_path):
     """Load the pretrained model from model_path. If not found, load from backup."""
-    model = HeuristicNN()
+    model = HeuristicNN().to(device)
+    print(f"model path: {model_path}")
+    print(f"os.path.exists(model_path): {os.path.exists(model_path)}")
     if os.path.exists(model_path):
         model.load_state_dict(torch.load(model_path, map_location=device))
         print(f"Loaded model from {model_path}")
     else:
         print(f"Failed to load model from {model_path}. Loading backup from {backup_path}")
         model.load_state_dict(torch.load(backup_path, map_location=device))
-    model.to(device)
     return model
 
 def pretrain(learning_rate=0.001, batch_update_size=50, games=5000, 
@@ -143,6 +154,7 @@ def pretrain(learning_rate=0.001, batch_update_size=50, games=5000,
                 if improvement < improvement_threshold:
                     no_improvement_count += 1
                 else:
+                    print(f"last imorovement count: {no_improvement_count}")
                     no_improvement_count = 0
             last_epoch_loss = epoch_loss
             
@@ -169,6 +181,7 @@ def training(learning_rate=0.001, batch_update_size=50, epochs_per_round=5,
          - Test the model (10 games) with test_model functions.
          - Update the model if performance improves.
          - Plot average wins vs. training round.
+         - Also plot the improvement (new vs. old network win rate) over rounds.
       4. Continue until average wins reach the desired win rate.
     """
     os.makedirs(output_dir, exist_ok=True)
@@ -184,6 +197,7 @@ def training(learning_rate=0.001, batch_update_size=50, epochs_per_round=5,
     print(f"Backed up pretrained model to {backup_path}")
 
     avg_wins_history = []
+    improvement_history = []
     best_avg_wins = 0.0
     training_count = 0
 
@@ -204,7 +218,8 @@ def training(learning_rate=0.001, batch_update_size=50, epochs_per_round=5,
             if os.path.exists(SAMPLES_FILE):
                 os.remove(SAMPLES_FILE)
             # Generate new samples using best-of-four strategy.
-            sample_best_of_four(games=100, sample_file_name=SAMPLES_FILE)
+            sample_model_against_all(games=100, sample_file_name=SAMPLES_FILE, model=model, device=device)
+            trim_samples(SAMPLES_FILE)
 
             X, y = load_samples(SAMPLES_FILE)
             if not X:
@@ -245,8 +260,8 @@ def training(learning_rate=0.001, batch_update_size=50, epochs_per_round=5,
                 print(f"    Epoch {ep}/{epochs_per_round}, MSE Loss: {epoch_loss:.4f}")
 
                 if last_epoch_loss is not None:
-                    improvement = abs(last_epoch_loss - epoch_loss)
-                    if improvement < improvement_threshold:
+                    improvement_val = abs(last_epoch_loss - epoch_loss)
+                    if improvement_val < improvement_threshold:
                         no_improvement_count += 1
                     else:
                         no_improvement_count = 0
@@ -258,12 +273,13 @@ def training(learning_rate=0.001, batch_update_size=50, epochs_per_round=5,
 
             # Test the model against the heuristic opponent.
             model.eval()
-            avg_wins = test_model_against_heuristic(device, model)
+            avg_wins = test_model_against_hard_heuristic(device, model)
             avg_wins_history.append(avg_wins)
             if avg_wins > best_avg_wins:
                 best_avg_wins = avg_wins
             # Also test improvement against the last saved model.
             improv = test_model_improvement(device, model, last_model)
+            improvement_history.append(improv)
             if improv > 0.5 or avg_wins >= best_avg_wins:
                 last_model.load_state_dict(model.state_dict())
                 torch.save(model.state_dict(), final_rl_path)
@@ -274,12 +290,22 @@ def training(learning_rate=0.001, batch_update_size=50, epochs_per_round=5,
             # Plot progress of average wins.
             plt.clf()
             plt.plot(range(1, len(avg_wins_history) + 1), avg_wins_history, marker='o')
-            plt.title("Outcome-Based Training Progress")
+            plt.title("Outcome-Based Training Progress (Win % vs. Heuristic)")
             plt.xlabel("Round")
             plt.ylabel("Average Wins (10 games)")
             plt.ylim([0, 1.05])
             plt.grid(True)
             plt.savefig(os.path.join(output_dir, "training_progress.png"))
+            
+            # Plot progress of improvement (new vs. old network win %).
+            plt.clf()
+            plt.plot(range(1, len(improvement_history) + 1), improvement_history, marker='o', color='orange')
+            plt.title("Improvement: New vs. Old Network")
+            plt.xlabel("Round")
+            plt.ylabel("Win % (10 games)")
+            plt.ylim([0, 1.05])
+            plt.grid(True)
+            plt.savefig(os.path.join(output_dir, "improvement_progress.png"))
 
             if avg_wins >= desired_win_rate:
                 print("Reached desired win rate. Stopping training.")
@@ -288,3 +314,47 @@ def training(learning_rate=0.001, batch_update_size=50, epochs_per_round=5,
         print("Training interrupted.")
     finally:
         print("Finished training.")
+
+def test_model():
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    model = load_model("RL/trained_model.pt", "").to(device)
+    wins = 0
+    model.eval()
+    for _ in range(100):
+        avg_wins = test_model_against_heuristic(device, model)
+        wins += avg_wins * 10
+    print(f"Model wins: {wins}/1000")
+
+def test_specific_model(model_path):
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    model = load_model(model_path, "").to(device)
+    model.eval()
+    print(f"\nselect your choice...\n")
+    print(f"1. against our huristic\n")
+    print(f"2. against simple compare all moves\n")
+    print(f"3. against hard compare all moves\n")
+    print(f"4. against another model\n")
+    print(f"5. against random\n")
+    player = input("Enter the number of your choice: ").strip()
+    opponent_model = None
+    if player == "4":
+        print("Enter the path of the other model")
+        path = input("Enter the path: ").strip()
+        opponent_model = load_model(path, "").to(device)
+    if player == "5":
+        wins = test_model_against_random(device, model)
+        x, y = load_samples("RL/board_random_samples", target="heuristic")
+        while len(x) < 200:
+            wins += test_model_against_random(device, model)
+            x, y = load_samples("RL/board_random_samples", target="heuristic")
+		# calculate variance and mean between the model and the huristic (y vector)
+        preds = model(torch.tensor(x, dtype=torch.float32, device=device))
+        difference = preds - torch.tensor(y, dtype=torch.float32, device=device).view(-1, 1)
+        variance = torch.var(difference)
+        average = torch.mean(difference)
+        print(f"Model wins: {wins}/200")
+        print(f"Variance: {variance}")
+        print(f"Average: {average}")
+        return
+    wins = test_model_against_player(device, model, player, opponent_model)
+    print(f"Model wins: {wins}/100")
